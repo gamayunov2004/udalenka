@@ -1,14 +1,8 @@
-for pkg in nano ubuntu-minimal firefox core22 chromium; do
-  echo "===== $pkg: apt show ====="
-  apt show "$pkg" 2>/dev/null | head -25
-  echo "===== $pkg: dpkg -L ====="
-  dpkg -L "$pkg" 2>/dev/null | head -10
-  echo "===== $pkg: snap list ====="
-  snap list "$pkg" 2>/dev/null
-  echo
-done
-
-
-apt-cache show $(dpkg-query -Wf '${Package}\n') | awk '$1 == "Package:" { pkg = $2 }; $1 == "Section:" && $2 ~ /metapackage/ { print pkg }'
-
-apt-cache search --names-only ".*" | grep -i "meta" | head -20
+cat > ~/gamayunovfirstpackage/usr/local/bin/gamayunovscript << 'EOF'
+#!/bin/bash
+echo "Мой первый пакет работает успешно!"
+echo "Текущая дата: $(date)"
+echo "Версия пакета: 1.0"
+EOF
+chmod +x ~/gamayunovfirstpackage/usr/local/bin/gamayunovscript
+ls -l ~/gamayunovfirstpackage/usr/local/bin/gamayunovscript
