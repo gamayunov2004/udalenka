@@ -1,8 +1,12 @@
-cat > ~/gamayunovfirstpackage/usr/local/bin/gamayunovscript << 'EOF'
-#!/bin/bash
-echo "Мой первый пакет работает успешно!"
-echo "Текущая дата: $(date)"
-echo "Версия пакета: 1.0"
+cat > ~/gamayunovfirstpackage/DEBIAN/control << EOF
+Package: gamayunovfirstpackage
+Version: 1.0
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Artem Gamayunov <student@example.com>
+Description: Мой первый тестовый пакет
+ Это учебный пакет, созданный для освоения системы управления пакетами.
 EOF
-chmod +x ~/gamayunovfirstpackage/usr/local/bin/gamayunovscript
-ls -l ~/gamayunovfirstpackage/usr/local/bin/gamayunovscript
+
+cat ~/gamayunovfirstpackage/DEBIAN/control
