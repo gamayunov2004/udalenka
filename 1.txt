@@ -1,12 +1,4 @@
-cat > ~/gamayunovfirstpackage/DEBIAN/control << EOF
-Package: gamayunovfirstpackage
-Version: 1.0
-Section: utils
-Priority: optional
-Architecture: all
-Maintainer: Artem Gamayunov <student@example.com>
-Description: Мой первый тестовый пакет
- Это учебный пакет, созданный для освоения системы управления пакетами.
-EOF
-
-cat ~/gamayunovfirstpackage/DEBIAN/control
+echo "deb [trusted=yes] file:$(pwd) ./" | sudo tee /etc/apt/sources.list.d/local-repo.list
+cat /etc/apt/sources.list.d/local-repo.list
+sudo apt update
+apt policy gamayunovfirstpackage
