@@ -7,3 +7,8 @@ for pkg in nano ubuntu-minimal firefox core22 chromium; do
   snap list "$pkg" 2>/dev/null
   echo
 done
+
+
+apt-cache show $(dpkg-query -Wf '${Package}\n') | awk '$1 == "Package:" { pkg = $2 }; $1 == "Section:" && $2 ~ /metapackage/ { print pkg }'
+
+apt-cache search --names-only ".*" | grep -i "meta" | head -20
