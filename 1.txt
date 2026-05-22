@@ -1,24 +1,23 @@
-sudo tee /etc/systemd/system/lab12-memmap.service > /dev/null <<'EOF'
-[Unit]
-Description=Lab12 memory map collector
+sudo rm -f /var/log/my_mem_maps/*.txt
+./mem_alloc_lab12 P1 > p1.log 2>&1 &
+PID=$!
+printf "TARGET_PID=%s\nTARGET_MODE=P1\n" "$PID" | sudo tee /etc/lab12_mem.env
+sudo systemctl start lab12-memmap.timer
+systemctl status lab12-memmap.timer --no-pager
+sleep 330
+sudo ls -l /var/log/my_mem_maps | tail
+sudo ls /var/log/my_mem_maps/*_P1.txt | wc -l
+sudo systemctl stop lab12-memmap.timer
+kill -TERM $PID
 
-[Service]
-Type=oneshot
-EnvironmentFile=/etc/lab12_mem.env
-ExecStart=/usr/local/bin/collect_mem_map.sh $TARGET_PID $TARGET_MODE
-EOF
 
-
-
-sudo tee /etc/systemd/system/lab12-memmap.timer > /dev/null <<'EOF'
-[Unit]
-Description=Run Lab12 memory map collector every 30 seconds
-
-[Timer]
-OnActiveSec=5s
-OnUnitActiveSec=30s
-Unit=lab12-memmap.service
-
-[Install]
-WantedBy=timers.target
-EOF
+./mem_alloc_lab12 P2 > p2.log 2>&1 &
+PID=$!
+printf "TARGET_PID=%s\nTARGET_MODE=P2\n" "$PID" | sudo tee /etc/lab12_mem.env
+sudo systemctl start lab12-memmap.timer
+systemctl status lab12-memmap.timer --no-pager
+sleep 330
+sudo ls -l /var/log/my_mem_maps | tail
+sudo ls /var/log/my_mem_maps/*_P2.txt | wc -l
+sudo systemctl stop lab12-memmap.timer
+kill -TERM $PID
