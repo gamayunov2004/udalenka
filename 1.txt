@@ -1,26 +1,24 @@
-cat > collect_mem_map.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
+sudo tee /etc/systemd/system/lab12-memmap.service > /dev/null <<'EOF'
+[Unit]
+Description=Lab12 memory map collector
 
-PID=${1:?"PID is required"}
-MODE=${2:-unknown}
-OUT_DIR="/var/log/my_mem_maps"
-DATE_TIME=$(date '+%Y-%m-%d_%H:%M:%S')
-OUT_FILE="$OUT_DIR/map_${PID}_${DATE_TIME}_${MODE}.txt"
-
-sudo mkdir -p "$OUT_DIR"
-pmap -x "$PID" | sudo tee "$OUT_FILE" > /dev/null
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/lab12_mem.env
+ExecStart=/usr/local/bin/collect_mem_map.sh $TARGET_PID $TARGET_MODE
 EOF
 
 
-chmod +x collect_mem_map.sh
-ls -l collect_mem_map.sh
 
+sudo tee /etc/systemd/system/lab12-memmap.timer > /dev/null <<'EOF'
+[Unit]
+Description=Run Lab12 memory map collector every 30 seconds
 
-./mem_alloc_lab12 P1 &
-PID=$!
-echo $PID
-./collect_mem_map.sh $PID P1
-sudo ls -l /var/log/my_mem_maps
-sudo head -n 20 /var/log/my_mem_maps/map_${PID}_*_P1.txt
-kill -TERM $PID
+[Timer]
+OnActiveSec=5s
+OnUnitActiveSec=30s
+Unit=lab12-memmap.service
+
+[Install]
+WantedBy=timers.target
+EOF
