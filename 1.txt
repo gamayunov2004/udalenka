@@ -1,23 +1,9 @@
-sudo rm -f /var/log/my_mem_maps/*.txt
-./mem_alloc_lab12 P1 > p1.log 2>&1 &
-PID=$!
-printf "TARGET_PID=%s\nTARGET_MODE=P1\n" "$PID" | sudo tee /etc/lab12_mem.env
-sudo systemctl start lab12-memmap.timer
-systemctl status lab12-memmap.timer --no-pager
-sleep 330
-sudo ls -l /var/log/my_mem_maps | tail
-sudo ls /var/log/my_mem_maps/*_P1.txt | wc -l
-sudo systemctl stop lab12-memmap.timer
-kill -TERM $PID
-
-
-./mem_alloc_lab12 P2 > p2.log 2>&1 &
-PID=$!
-printf "TARGET_PID=%s\nTARGET_MODE=P2\n" "$PID" | sudo tee /etc/lab12_mem.env
-sudo systemctl start lab12-memmap.timer
-systemctl status lab12-memmap.timer --no-pager
-sleep 330
-sudo ls -l /var/log/my_mem_maps | tail
-sudo ls /var/log/my_mem_maps/*_P2.txt | wc -l
-sudo systemctl stop lab12-memmap.timer
-kill -TERM $PID
+for pkg in nano ubuntu-minimal firefox core22 chromium; do
+  echo "===== $pkg: apt show ====="
+  apt show "$pkg" 2>/dev/null | head -25
+  echo "===== $pkg: dpkg -L ====="
+  dpkg -L "$pkg" 2>/dev/null | head -10
+  echo "===== $pkg: snap list ====="
+  snap list "$pkg" 2>/dev/null
+  echo
+done
