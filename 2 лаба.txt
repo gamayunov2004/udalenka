@@ -1,74 +1,114 @@
 --1--
-pwd
-cd /
-ls -l
-
---1.1--
-ls -ld / /bin /sbin /etc /dev /proc /home /var /usr /tmp /lib
-ls -l /bin | head
-ls -l /etc | head
-ls -l /dev | head
-ls -l /proc | head
-ls -l /var | head
-file /bin /sbin /etc /dev /proc /home /var /usr /tmp /lib
-man hier
-
---1.2--
-echo $$
-ls -l /proc/$$
-cat /proc/$$/status | head -20
-ls -l /proc/$$/fd | head
+whoami
+id
+getent passwd $USER
+getent group $(id -gn)
+cat /etc/passwd | head -10
+sudo cat /etc/shadow | head -10
+cat /etc/group | head -10
+sudo grep "^$USER:" /etc/shadow
 
 --2--
-cd ~
-mkdir -p Gamayunov/practice_1/catalog1
-mkdir -p Gamayunov/practice_1/catalog2/catalog3
-cd Gamayunov/practice_1
-echo "Gamayunov $(date)" > file1
-cd catalog2
-touch file2 file3
-echo "file2 created $(date)" > file2
-echo "file3 created $(date)" > file3
-echo "Справка man по команде ls" > catalog3/file4
-man ls | col -b | head -n 40 >> catalog3/file4
+sudo adduser --disabled-password --gecos "Gamayunov User1" gamayunov_1
+sudo adduser --disabled-password --gecos "Gamayunov User2" gamayunov_2
+echo 'gamayunov_1:12345' | sudo chpasswd
+echo 'gamayunov_2:12345' | sudo chpasswd
+id gamayunov_1
+id gamayunov_2
+getent passwd gamayunov_1
+getent passwd gamayunov_2
 
---2.1--
-cd ~/Gamayunov/practice_1
-ln file1 hard_link_file1
-ln catalog2 hard_link_catalog2
-ln -s catalog2/catalog3/file4 s_link
-ls -li file1 hard_link_file1
-ls -l s_link
-head -n 5 s_link
+su - gamayunov_1
+su - gamayunov_2
+sudo -i
+whoami
+pwd
 
---2.2--
-sudo apt install -y tree
-cd ~/Gamayunov
-tree -a practice_1
-cat practice_1/file1
-cat practice_1/catalog2/file2
-cat practice_1/catalog2/file3
-head -n 10 practice_1/catalog2/catalog3/file4
-head -n 10 practice_1/s_link
+whoami
+cd /root
+ls -ld /root
+ls -la / | head -30
+
+--3--
+sudo mkdir -m 777 /home/temp1
+sudo mkdir -m 1777 /home/temp2
+ls -ld /home/temp1 /home/temp2
+ls -ld /home/gamayunov_1 /home/gamayunov_2
+
+su - gamayunov_1
+mkdir -m 777 qu1
+mkdir -m 404 qu2
+mkdir -m 1333 qu3
+mkdir -m 505 qu4
+ls -ld qu1 qu2 qu3 qu4
+umask 022
+umask
+
+sudo apt install -y ncal
+cal 1 2026 > ~/qu1/jan
+cal 2 2026 > ~/qu1/feb
+cal 3 2026 > ~/qu1/mar
+cal 1 2026 > ~/qu2/jan
+cal 2 2026 > ~/qu2/feb
+cal 3 2026 > ~/qu2/mar
+cal 1 2026 > ~/qu3/jan
+cal 2 2026 > ~/qu3/feb
+cal 3 2026 > ~/qu3/mar
+cal 1 2026 > ~/qu4/jan
+cal 2 2026 > ~/qu4/feb
+cal 3 2026 > ~/qu4/mar
+ls -l qu1
+ls -ld qu2 qu3 qu4
+
+chmod 704 ~/qu2
+cal 1 2026 > ~/qu2/jan
+cal 2 2026 > ~/qu2/feb
+cal 3 2026 > ~/qu2/mar
+chmod 404 ~/qu2
+chmod 705 ~/qu4
+cal 1 2026 > ~/qu4/jan
+cal 2 2026 > ~/qu4/feb
+cal 3 2026 > ~/qu4/mar
+chmod 505 ~/qu4
+ls -ld ~/qu2 ~/qu4
+sudo ls -l /home/gamayunov_1/qu2
+sudo ls -l /home/gamayunov_1/qu4
+
+--4--
+sudo chattr +i /home/gamayunov_1/qu1/feb
+sudo chattr +a /home/gamayunov_1/qu1/mar
+lsattr /home/gamayunov_1/qu1/feb /home/gamayunov_1/qu1/mar
+su - gamayunov_1
+echo finish >> ~/qu1/feb
+echo finish >> ~/qu1/mar
+echo test > ~/qu1/mar
+tail -n 5 ~/qu1/mar
+
+sudo chattr -i /home/gamayunov_1/qu1/feb
+sudo chattr -a /home/gamayunov_1/qu1/mar
+lsattr /home/gamayunov_1/qu1/feb /home/gamayunov_1/qu1/mar
 
 --доп 1--
-sudo du -ah /var/log 2>/dev/null | sort -rh | head -5
-sudo find /var/log -type f -mtime -2 -ls | head -20
-ls -l /var/log/syslog
-sudo grep -Ei "error|fail" /var/log/syslog 2>/dev/null | head -20
+sudo groupadd sharedgrp
+sudo usermod -aG sharedgrp gamayunov_1
+sudo usermod -aG sharedgrp gamayunov_2
+sudo mkdir -p /home/shared_dir
+sudo chown root:sharedgrp /home/shared_dir
+sudo chmod 2775 /home/shared_dir
+ls -ld /home/shared_dir
+sudo -u gamayunov_1 bash -c 'echo file1 > /home/shared_dir/user1_file'
+sudo -u gamayunov_2 bash -c 'echo file2 > /home/shared_dir/user2_file'
+ls -l /home/shared_dir
 
 --доп 2--
-sudo find /etc -maxdepth 1 -type f \( -name "*.conf" -o -iname "*network*" \) -printf "%u %TY-%Tm-%Td %TH:%TM %s %p\n" 2>/dev/null
-cat /proc/cpuinfo | grep "model name" | head -1
-cat /proc/cpuinfo | grep "cpu cores" | head -1
-grep -c "^processor" /proc/cpuinfo
-grep -E "MemTotal|MemFree|MemAvailable" /proc/meminfo
+sudo chmod 1777 /home/temp1
+ls -ld /home/temp1
+sudo -u gamayunov_1 bash -c 'echo user1_file > /home/temp1/user1_file'
+ls -l /home/temp1/user1_file
+sudo -u gamayunov_2 rm /home/temp1/user1_file
+ls -l /home/temp1/user1_file
 
 --доп 3--
-ls -ld /bin /usr/bin /lib /usr/lib
-comm -12 <(ls /bin | sort) <(ls /usr/bin | sort) | head -20
-ls -l /bin/ls /usr/bin/ls 2>/dev/null
-find /bin -maxdepth 1 -type l -ls | head -20
-find /lib -maxdepth 2 -type f -name "*.so*" 2>/dev/null | wc -l
-find /usr/lib -maxdepth 2 -type f -name "*.so*" 2>/dev/null | wc -l
-comm -12 <(find /lib -maxdepth 2 -type f -printf "%f\n" 2>/dev/null | sort) <(find /usr/lib -maxdepth 2 -type f -printf "%f\n" 2>/dev/null | sort) | head -20
+find / -type f -perm /6000 2>/dev/null | head -20
+ls -l /usr/bin/passwd
+stat /usr/bin/passwd
