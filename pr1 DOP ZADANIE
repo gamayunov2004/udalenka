@@ -1,0 +1,60 @@
+-1-
+mkdir -p ~/gamayunovsecondpackage/DEBIAN
+mkdir -p ~/gamayunovsecondpackage/usr/local/bin
+cat > ~/gamayunovsecondpackage/usr/local/bin/gamayunovscript2 << 'EOF'
+#!/bin/bash
+echo "Второй учебный пакет работает успешно!"
+echo "Текущая дата: $(date)"
+echo "Версия пакета: 1.0"
+EOF
+chmod +x ~/gamayunovsecondpackage/usr/local/bin/gamayunovscript2
+cat > ~/gamayunovsecondpackage/DEBIAN/control << 'EOF'
+Package: gamayunovsecondpackage
+Version: 1.0
+Section: utils
+Priority: optional
+Architecture: all
+Maintainer: Artem Gamayunov <gamayunov@example.com>
+Description: Второй учебный тестовый пакет
+ Это дополнительный пакет для проверки локального репозитория.
+EOF
+dpkg-deb --build ~/gamayunovsecondpackage
+ls -l ~/gamayunovsecondpackage.deb
+
+mkdir -p ~/local-repo
+cp ~/gamayunovfirstpackage.deb ~/local-repo/
+cp ~/gamayunovsecondpackage.deb ~/local-repo/
+cd ~/local-repo
+dpkg-scanpackages . /dev/null > Packages
+dpkg-scanpackages . /dev/null | gzip -9c > Packages.gz
+ls -l
+grep -E "^Package:|^Version:" Packages
+
+echo "deb [trusted=yes] file:$(pwd) ./" | sudo tee /etc/apt/sources.list.d/local-repo.list
+sudo apt update
+apt policy gamayunovfirstpackage gamayunovsecondpackage
+sudo apt install -y gamayunovsecondpackage
+dpkg -l | grep gamayunov
+gamayunovscript2
+
+-2-
+sudo apt install -y gnupg apt-utils
+gpg --batch --passphrase '' --quick-gen-key 'Gamayunov Local Repo <gamayunov@example.com>' rsa2048 sign 0
+gpg --list-keys
+gpg --export 'Gamayunov Local Repo' | sudo gpg --dearmor -o /usr/share/keyrings/gamayunov-localrepo.gpg
+cd ~/local-repo
+apt-ftparchive release . > Release
+gpg --batch --yes --default-key 'Gamayunov Local Repo' --clearsign -o InRelease Release
+gpg --batch --yes --default-key 'Gamayunov Local Repo' -abs -o Release.gpg Release
+ls -l Release InRelease Release.gpg /usr/share/keyrings/gamayunov-localrepo.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/gamayunov-localrepo.gpg] file:$(pwd) ./" | sudo tee /etc/apt/sources.list.d/local-repo.list
+cat /etc/apt/sources.list.d/local-repo.list
+sudo apt update
+apt policy gamayunovfirstpackage gamayunovsecondpackage
+
+--очистка--
+sudo apt remove -y gamayunovfirstpackage gamayunovsecondpackage
+sudo rm -f /etc/apt/sources.list.d/local-repo.list
+sudo rm -f /usr/share/keyrings/gamayunov-localrepo.gpg
+sudo apt update
