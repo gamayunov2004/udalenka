@@ -1,0 +1,31 @@
+-подготовка-
+mkdir -p ~/lr8_sync
+cd ~/lr8_sync
+sudo apt update
+sudo apt install -y gcc make
+
+-1-
+nano lab8_threads.c
+gcc lab8_threads.c -o lab8_threads -pthread
+ls -l lab8_threads
+
+-1.1-
+./lab8_threads mutex
+
+-1.2-
+./lab8_threads sem
+
+-1.3-
+./lab8_threads cond
+
+-доп-
+nano lab8_extra_named_sem.c
+gcc lab8_extra_named_sem.c -o lab8_extra_named_sem -pthread
+ls -l lab8_extra_named_sem
+
+./lab8_extra_named_sem cleanup
+./lab8_extra_named_sem worker_A &
+./lab8_extra_named_sem worker_B &
+wait
+cat /tmp/gamayunov_lr8_shared_log.txt
+
