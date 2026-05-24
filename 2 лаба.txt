@@ -1,114 +1,25 @@
+--подготовка--
+mkdir -p ~/lr9_ipc
+cd ~/lr9_ipc
+sudo apt update
+sudo apt install -y gcc make
+
 --1--
-whoami
-id
-getent passwd $USER
-getent group $(id -gn)
-cat /etc/passwd | head -10
-sudo cat /etc/shadow | head -10
-cat /etc/group | head -10
-sudo grep "^$USER:" /etc/shadow
+gcc lab9_ipc.c -o lab9_ipc -lrt
+ls -l lab9_ipc
 
---2--
-sudo adduser --disabled-password --gecos "Gamayunov User1" gamayunov_1
-sudo adduser --disabled-password --gecos "Gamayunov User2" gamayunov_2
-echo 'gamayunov_1:12345' | sudo chpasswd
-echo 'gamayunov_2:12345' | sudo chpasswd
-id gamayunov_1
-id gamayunov_2
-getent passwd gamayunov_1
-getent passwd gamayunov_2
+./lab9_ipc pipe 1
 
-su - gamayunov_1
-su - gamayunov_2
-sudo -i
-whoami
-pwd
+./lab9_ipc shm 1
 
-whoami
-cd /root
-ls -ld /root
-ls -la / | head -30
+./lab9_ipc socket 1
 
---3--
-sudo mkdir -m 777 /home/temp1
-sudo mkdir -m 1777 /home/temp2
-ls -ld /home/temp1 /home/temp2
-ls -ld /home/gamayunov_1 /home/gamayunov_2
 
-su - gamayunov_1
-mkdir -m 777 qu1
-mkdir -m 404 qu2
-mkdir -m 1333 qu3
-mkdir -m 505 qu4
-ls -ld qu1 qu2 qu3 qu4
-umask 022
-umask
+--доп--
+./lab9_ipc pipe 100
+./lab9_ipc shm 100
+./lab9_ipc socket 100
 
-sudo apt install -y ncal
-cal 1 2026 > ~/qu1/jan
-cal 2 2026 > ~/qu1/feb
-cal 3 2026 > ~/qu1/mar
-cal 1 2026 > ~/qu2/jan
-cal 2 2026 > ~/qu2/feb
-cal 3 2026 > ~/qu2/mar
-cal 1 2026 > ~/qu3/jan
-cal 2 2026 > ~/qu3/feb
-cal 3 2026 > ~/qu3/mar
-cal 1 2026 > ~/qu4/jan
-cal 2 2026 > ~/qu4/feb
-cal 3 2026 > ~/qu4/mar
-ls -l qu1
-ls -ld qu2 qu3 qu4
-
-chmod 704 ~/qu2
-cal 1 2026 > ~/qu2/jan
-cal 2 2026 > ~/qu2/feb
-cal 3 2026 > ~/qu2/mar
-chmod 404 ~/qu2
-chmod 705 ~/qu4
-cal 1 2026 > ~/qu4/jan
-cal 2 2026 > ~/qu4/feb
-cal 3 2026 > ~/qu4/mar
-chmod 505 ~/qu4
-ls -ld ~/qu2 ~/qu4
-sudo ls -l /home/gamayunov_1/qu2
-sudo ls -l /home/gamayunov_1/qu4
-
---4--
-sudo chattr +i /home/gamayunov_1/qu1/feb
-sudo chattr +a /home/gamayunov_1/qu1/mar
-lsattr /home/gamayunov_1/qu1/feb /home/gamayunov_1/qu1/mar
-su - gamayunov_1
-echo finish >> ~/qu1/feb
-echo finish >> ~/qu1/mar
-echo test > ~/qu1/mar
-tail -n 5 ~/qu1/mar
-
-sudo chattr -i /home/gamayunov_1/qu1/feb
-sudo chattr -a /home/gamayunov_1/qu1/mar
-lsattr /home/gamayunov_1/qu1/feb /home/gamayunov_1/qu1/mar
-
---доп 1--
-sudo groupadd sharedgrp
-sudo usermod -aG sharedgrp gamayunov_1
-sudo usermod -aG sharedgrp gamayunov_2
-sudo mkdir -p /home/shared_dir
-sudo chown root:sharedgrp /home/shared_dir
-sudo chmod 2775 /home/shared_dir
-ls -ld /home/shared_dir
-sudo -u gamayunov_1 bash -c 'echo file1 > /home/shared_dir/user1_file'
-sudo -u gamayunov_2 bash -c 'echo file2 > /home/shared_dir/user2_file'
-ls -l /home/shared_dir
-
---доп 2--
-sudo chmod 1777 /home/temp1
-ls -ld /home/temp1
-sudo -u gamayunov_1 bash -c 'echo user1_file > /home/temp1/user1_file'
-ls -l /home/temp1/user1_file
-sudo -u gamayunov_2 rm /home/temp1/user1_file
-ls -l /home/temp1/user1_file
-
---доп 3--
-find / -type f -perm /6000 2>/dev/null | head -20
-ls -l /usr/bin/passwd
-stat /usr/bin/passwd
+/usr/bin/time -v ./lab9_ipc pipe 100
+/usr/bin/time -v ./lab9_ipc shm 100
+/usr/bin/time -v ./lab9_ipc socket 100
