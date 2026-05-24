@@ -1,0 +1,126 @@
+-1-
+file /sbin/init
+systemctl --version
+ps -p 1 -o comm=
+cat /proc/cmdline
+systemd-analyze time
+systemd-analyze plot > ~/boot.svg
+ls -l ~/boot.svg
+lsmod | head -10
+
+-2-
+ls /boot/vmlinuz* | sort -V
+head -30 /boot/grub/grub.cfg
+grep -E "^[[:space:]]*menuentry" /boot/grub/grub.cfg | cut -d "'" -f2
+grub-install --version
+cat /etc/default/grub
+grep GRUB_TIMEOUT /etc/default/grub
+grep GRUB_DEFAULT /etc/default/grub
+uname -r
+
+-3-
+systemd-analyze
+systemd-analyze blame | head -10
+systemd-analyze critical-chain
+systemctl list-units --type=service | head -15
+systemctl is-active graphical.target
+systemctl status display-manager --no-pager
+
+-4-
+uname -r
+ls -lh /boot/initrd.img-$(uname -r)
+lsinitramfs /boot/initrd.img-$(uname -r) | head -20
+lsinitramfs /boot/initrd.img-$(uname -r) | grep -E "\.ko$" | head -10
+lsinitramfs /boot/initrd.img-$(uname -r) | grep "scripts" | head -30
+
+-5-
+uptime -s
+who -b
+journalctl -b | head -30
+dmesg | head -30
+dmesg | grep -i "error\|warn" | head -30
+journalctl -b -p err
+journalctl -b -u systemd-networkd --no-pager
+journalctl -b | grep -i "mount.*root" | head -10
+journalctl -b | grep -i "disk\|sda\|vda\|enp\|eth" | head -30
+
+-6-
+lsmod | wc -l
+mount | grep "^/dev"
+df -h
+findmnt -no SOURCE,FSTYPE,SIZE,USED,AVAIL,TARGET /
+ip addr show
+ps -e --no-headers | wc -l
+
+-7-
+systemctl list-unit-files --type=target
+systemctl get-default
+systemctl list-dependencies multi-user.target | head -20
+systemctl list-dependencies graphical.target | head -20
+systemctl list-units --type=target --state=active
+systemctl status display-manager --no-pager
+systemctl cat display-manager
+
+sudo systemctl isolate multi-user.target
+sudo systemctl isolate graphical.target
+
+-доп-
+mkdir -p ~/myinitramfs
+rm -rf /tmp/initrd_content
+mkdir -p /tmp/initrd_content
+cd /tmp/initrd_content
+zcat /boot/initrd.img-$(uname -r) | cpio -id --quiet
+ls -l
+ls -l init scripts bin usr lib lib64 2>/dev/null | head -40
+cd ~/myinitramfs
+-------------------------------------------------------------
+cd ~/myinitramfs
+rm -rf ./*
+mkdir -p bin dev etc lib lib64 mnt proc sbin sys usr/bin usr/sbin
+sudo apt install -y busybox-static
+cp /bin/busybox bin/
+cd bin
+for applet in mount umount switch_root sh echo cat ls sleep modprobe mkdir; do
+  ln -sf busybox $applet
+done
+cd ..
+----------------------------------------------------
+ROOTDEV=$(findmnt -no SOURCE /)
+echo $ROOTDEV
+
+cat > init <<EOF
+#!/bin/sh
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+
+echo "Custom initramfs started"
+echo "Root device: $ROOTDEV"
+
+modprobe ahci 2>/dev/null || true
+modprobe ext4 2>/dev/null || true
+
+mount -o ro $ROOTDEV /mnt
+if [ $? -ne 0 ]; then
+  echo "Cannot mount real root filesystem"
+  echo "Debug shell started"
+  sh
+fi
+
+umount /proc /sys /dev
+exec switch_root /mnt /sbin/init
+EOF
+
+chmod +x init
+cat init
+------------------------------------------------------------
+KVER=$(uname -r)
+mkdir -p lib/modules/$KVER/kernel/drivers lib/modules/$KVER/kernel/fs
+sudo cp -a /lib/modules/$KVER/kernel/drivers/ata lib/modules/$KVER/kernel/drivers/ 2>/dev/null || true
+sudo cp -a /lib/modules/$KVER/kernel/fs/ext4 lib/modules/$KVER/kernel/fs/ 2>/dev/null || true
+sudo cp /lib/modules/$KVER/modules.dep lib/modules/$KVER/ 2>/dev/null || true
+sudo cp /lib/modules/$KVER/modules.alias lib/modules/$KVER/ 2>/dev/null || true
+find . | cpio -o -H newc --quiet | gzip > ~/myinitrd.img
+ls -lh ~/myinitrd.img
+sudo cp ~/myinitrd.img /boot/myinitrd.img
+ls -lh /boot/initrd.img-$(uname -r) /boot/myinitrd.img
