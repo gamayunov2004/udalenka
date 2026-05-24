@@ -1,0 +1,33 @@
+--подготовка--
+mkdir -p ~/lr7_process_threads
+cd ~/lr7_process_threads
+sudo apt update
+sudo apt install -y gcc make strace
+
+--1--
+nano lab7_fork.c
+gcc lab7_fork.c -o lab7_fork
+./lab7_fork
+
+--2--
+nano lab7_threads.c
+gcc lab7_threads.c -o lab7_threads -lpthread
+./lab7_threads
+
+--3--
+nano lab7_exec.c
+gcc lab7_threads.c -o lab7_threads -lpthread
+gcc lab7_exec.c -o lab7_exec
+./lab7_exec
+
+--доп 1--
+nano trace_scenario1.c
+gcc trace_scenario1.c -o trace_scenario1
+strace -f -o trace1.txt ./trace_scenario1
+grep -E "clone|fork|execve|write|wait4|exit_group" trace1.txt | head -50
+
+--доп 2--
+nano trace_scenario2.c
+gcc trace_scenario2.c -o trace_scenario2
+strace -f -o trace2.txt ./trace_scenario2
+grep -E "clone|fork|execve|write|wait4|exit_group" trace2.txt | head -50
