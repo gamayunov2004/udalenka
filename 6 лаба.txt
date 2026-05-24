@@ -1,0 +1,131 @@
+--подготовка--
+mkdir -p ~/lr6_processes
+cd ~/lr6_processes
+sudo apt update
+sudo apt install -y atop sysstat procps
+
+
+--1.1--
+top -b -n 1 | head -20
+top -b -n 1 -o %MEM | head -20
+top -b -n 1 -o TIME+ | head -20
+top -b -n 1 -o PID | head -20
+top -b -n 1 -o %CPU | head -20
+
+--1.2--
+yes > /dev/null &
+TESTPID=$!
+echo $TESTPID
+top -b -n 1 -p $TESTPID
+ps -o pid,ppid,ni,pri,stat,comm -p $TESTPID
+renice +10 -p $TESTPID
+ps -o pid,ppid,ni,pri,stat,comm -p $TESTPID
+top -b -n 1 -p $TESTPID
+kill $TESTPID
+
+--1.3--
+sudo systemctl start atop
+atop -P CPU 1 1
+atop -P MEM 1 1
+atop -P DSK 1 1
+sudo atop -w ~/lr6_processes/atop_test.raw 5 2
+atopsar -r ~/lr6_processes/atop_test.raw -m
+atopsar -r ~/lr6_processes/atop_test.raw -d
+atopsar -r ~/lr6_processes/atop_test.raw -i
+
+--1.4--
+mpstat -P 0 1 3
+mpstat -P ALL 1 3
+
+--1.5--
+pidstat -u 3 4
+
+--2--
+sudo mkdir -p /var/log/lr6_stats
+
+sudo tee /usr/local/bin/lr6_collect_stats.sh > /dev/null <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+LOG_DIR="/var/log/lr6_stats"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/$(date '+%Y-%m-%d_%H:%M:%S')_syslog"
+{
+  echo "===== LR6 process statistics ====="
+  echo "Date: $(date)"
+  echo
+  echo "===== mpstat -P ALL 1 3 ====="
+  mpstat -P ALL 1 3
+  echo
+  echo "===== pidstat -u 1 3 ====="
+  pidstat -u 1 3
+  echo
+  echo "===== Top CPU processes ====="
+  ps aux --sort=-%cpu | head -10
+  echo
+  echo "===== Top memory processes ====="
+  ps aux --sort=-%mem | head -10
+} > "$LOG_FILE"
+echo "Log saved to $LOG_FILE"
+EOF
+
+sudo chmod +x /usr/local/bin/lr6_collect_stats.sh
+/usr/local/bin/lr6_collect_stats.sh
+sudo ls -l /var/log/lr6_stats
+sudo cat /var/log/lr6_stats/*_syslog | head -80
+
+--3--
+sudo tee /etc/systemd/system/lr6-stats.service > /dev/null <<'EOF'
+[Unit]
+Description=LR6 statistics collection service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/lr6_collect_stats.sh
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable lr6-stats.service
+sudo systemctl start lr6-stats.service
+systemctl status lr6-stats.service --no-pager
+sudo cat /etc/systemd/system/lr6-stats.service
+sudo ls -l /var/log/lr6_stats
+
+--доп--
+sudo tee /etc/systemd/system/lr6-stats.timer > /dev/null <<'EOF'
+[Unit]
+Description=Run LR6 statistics collection every minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=1min
+AccuracySec=30s
+Unit=lr6-stats.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now lr6-stats.timer
+systemctl status lr6-stats.timer --no-pager
+systemctl list-timers --all | grep lr6
+sleep 360
+sudo systemctl stop lr6-stats.timer
+systemctl status lr6-stats.timer --no-pager
+sudo cat /etc/systemd/system/lr6-stats.timer
+sudo ls -l /var/log/lr6_stats
+journalctl -u lr6-stats.service --no-pager -n 30
+journalctl -u lr6-stats.timer --no-pager -n 30
+
+--очистка--
+sudo systemctl stop lr6-stats.timer
+sudo systemctl disable lr6-stats.timer
+sudo systemctl disable lr6-stats.service
+sudo rm -f /etc/systemd/system/lr6-stats.timer
+sudo rm -f /etc/systemd/system/lr6-stats.service
+sudo systemctl daemon-reload
+
