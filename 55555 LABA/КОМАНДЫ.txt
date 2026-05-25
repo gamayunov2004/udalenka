@@ -45,27 +45,42 @@ gcc own_minute_program.c -o own_minute_program
 strace -c ./own_minute_program
 head -40 own_trace.log
 
-cat > calc_syscall_percent.py << 'EOF'
-import re
-import sys
 
-if len(sys.argv) != 3:
-    print("Usage: python3 calc_syscall_percent.py TRACE_FILE PROGRAM_TIME_SEC")
-    sys.exit(1)
 
-trace_file = sys.argv[1]
-program_time = float(sys.argv[2])
-total_syscall_time = 0.0
+cat > calc_syscall_percent.sh << 'EOF'
+#!/usr/bin/env bash
 
-with open(trace_file, "r", encoding="utf-8", errors="ignore") as f:
-    for line in f:
-        match = re.search(r"<([0-9.]+)>", line)
-        if match:
-            total_syscall_time += float(match.group(1))
+if [[ $# -ne 2 ]]; then
+    echo "Usage: ./calc_syscall_percent.sh TRACE_FILE PROGRAM_TIME_SEC"
+    exit 1
+fi
 
-percent = total_syscall_time / program_time * 100
-print(f"Суммарное время системных вызовов: {total_syscall_time:.6f} сек")
-print(f"Общее время программы: {program_time:.2f} сек")
-print(f"Доля времени системных вызовов: {percent:.4f}%")
+trace_file="$1"
+program_time="$2"
+
+if [[ ! -f "$trace_file" ]]; then
+    echo "Ошибка: файл трассировки '$trace_file' не найден"
+    exit 2
+fi
+
+awk -v program_time="$program_time" '
+{
+    while (match($0, /<[0-9]+\.[0-9]+>/)) {
+        syscall_time += substr($0, RSTART + 1, RLENGTH - 2)
+        $0 = substr($0, RSTART + RLENGTH)
+    }
+}
+END {
+    if (program_time <= 0) {
+        print "Ошибка: общее время программы должно быть больше нуля"
+        exit 3
+    }
+    percent = syscall_time / program_time * 100
+    printf "Суммарное время системных вызовов: %.6f сек\n", syscall_time
+    printf "Общее время программы: %.2f сек\n", program_time
+    printf "Доля времени системных вызовов: %.4f%%\n", percent
+}' "$trace_file"
 EOF
-python3 calc_syscall_percent.py own_trace.log 60
+
+chmod +x calc_syscall_percent.sh
+./calc_syscall_percent.sh own_trace.log 62
