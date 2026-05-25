@@ -10,7 +10,7 @@ int main(void)
         return 1;
     }
 
-    for (int i = 1; i <= 60; i++) {
+    for (int i = 1; i <= 62; i++) {
         time_t now = time(NULL);
         fprintf(f, "iteration %d time %ld\n", i, (long)now);
         fflush(f);
