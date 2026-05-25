@@ -1,1 +1,71 @@
-123
+---ПОДГОТОВКА---
+mkdir -p ~/Gamayunov/lr5_kernel
+cd ~/Gamayunov/lr5_kernel
+sudo apt update
+sudo apt install -y strace gcc make linux-headers-$(uname -r) manpages-dev
+
+---1---
+strace -V
+man strace
+strace -T date 2> strace_date.txt
+head -40 strace_date.txt
+strace -T -o ~/log date
+ls -l ~/log
+head -40 ~/log
+strace -c date
+
+sleep 120 &
+TESTPID=$!
+echo $TESTPID
+sudo timeout 5 strace -p $TESTPID -T -o ~/attached_process.log
+cat ~/attached_process.log
+kill $TESTPID 2>/dev/null
+
+---2---
+mkdir -p ~/Gamayunov/lr5_kernel/kmod-hello_world
+cd ~/Gamayunov/lr5_kernel/kmod-hello_world
+nano mhello.c
+nano Makefile
+
+make all
+ls -l
+sudo insmod ./mhello.ko
+lsmod | grep mhello
+sudo dmesg | tail -20
+
+sudo rmmod mhello
+lsmod | grep mhello
+sudo dmesg | tail -20
+
+---ДОП ЗАДАНИЕ---
+cd ~/Gamayunov/lr5_kernel
+nano own_minute_program.c
+gcc own_minute_program.c -o own_minute_program
+/usr/bin/time -p strace -T -o own_trace.log ./own_minute_program
+strace -c ./own_minute_program
+head -40 own_trace.log
+
+cat > calc_syscall_percent.py << 'EOF'
+import re
+import sys
+
+if len(sys.argv) != 3:
+    print("Usage: python3 calc_syscall_percent.py TRACE_FILE PROGRAM_TIME_SEC")
+    sys.exit(1)
+
+trace_file = sys.argv[1]
+program_time = float(sys.argv[2])
+total_syscall_time = 0.0
+
+with open(trace_file, "r", encoding="utf-8", errors="ignore") as f:
+    for line in f:
+        match = re.search(r"<([0-9.]+)>", line)
+        if match:
+            total_syscall_time += float(match.group(1))
+
+percent = total_syscall_time / program_time * 100
+print(f"Суммарное время системных вызовов: {total_syscall_time:.6f} сек")
+print(f"Общее время программы: {program_time:.2f} сек")
+print(f"Доля времени системных вызовов: {percent:.4f}%")
+EOF
+python3 calc_syscall_percent.py own_trace.log 60
