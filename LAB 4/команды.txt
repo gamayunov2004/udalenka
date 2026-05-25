@@ -1,1 +1,59 @@
-123
+--ПОДГОТОВКА--
+mkdir -p ~/Gamayunov/practice_2
+cd ~/Gamayunov/practice_2
+sudo apt update
+sudo apt install -y shellcheck nano
+
+--1--
+nano sum_args.sh
+chmod +x sum_args.sh
+./sum_args.sh 10 20 30
+echo $?
+./sum_args.sh 5
+echo $?
+./sum_args.sh 1 test 3
+echo $?
+shellcheck sum_args.sh
+
+--2--
+nano odd_numbers.sh
+chmod +x odd_numbers.sh
+./odd_numbers.sh 15
+./odd_numbers.sh abc
+echo $?
+shellcheck odd_numbers.sh
+
+--3--
+nano check_file.sh
+chmod +x check_file.sh
+./check_file.sh test_file.txt
+ls -l test_file.txt
+./check_file.sh test_file.txt
+shellcheck check_file.sh
+
+--4--
+nano system_menu.sh
+chmod +x system_menu.sh
+./system_menu.sh arg1 arg2
+shellcheck system_menu.sh
+
+--5--
+nano calc.sh
+chmod +x calc.sh
+./calc.sh
+shellcheck calc.sh
+
+--ПРОВЕРКА ВСЕХ СКРИПТОВ--
+shellcheck sum_args.sh
+shellcheck odd_numbers.sh
+shellcheck check_file.sh
+shellcheck system_menu.sh
+shellcheck calc.sh
+
+--ДОП ЗАДАНИЕ--
+nano avg_file_size.sh
+chmod +x avg_file_size.sh
+./avg_file_size.sh $HOME
+./avg_file_size.sh /no/such/directory
+echo $?
+shellcheck avg_file_size.sh
