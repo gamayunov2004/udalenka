@@ -1,0 +1,118 @@
+-2.1- 
+hostname -I на обеих машинах
+
+-2.2-
+# На ВМ1 получить IP-адрес веб-сервера
+hostname -I
+ip -4 addr
+
+# На ВМ2 проверить доступность ВМ1
+ping -c 4 IP_ВМ1
+
+-2.3-
+# Выполняется на ВМ1
+sudo apt update
+sudo apt install -y prometheus-node-exporter
+sudo systemctl enable --now prometheus-node-exporter
+sudo systemctl status prometheus-node-exporter --no-pager
+ss -tlnp | grep 9100
+curl -s http://localhost:9100/metrics | head -20
+
+-2.4-
+# Выполняется на ВМ1
+sudo tee /etc/nginx/snippets/pr3_stub_status.conf > /dev/null <<'EOF'
+location /nginx_status {
+    stub_status;
+    allow 127.0.0.1;
+    deny all;
+}
+EOF
+
+sudo sed -i '/location \/ {/i\    include /etc/nginx/snippets/pr3_stub_status.conf;' /etc/nginx/sites-available/pr3_balancer
+sudo nginx -t
+sudo systemctl reload nginx
+curl -s http://localhost/nginx_status
+
+-2.5-
+# Выполняется на ВМ1
+sudo docker rm -f pr3-nginx-exporter 2>/dev/null || true
+sudo docker run -d --name pr3-nginx-exporter --network host nginx/nginx-prometheus-exporter:latest --nginx.scrape-uri=http://127.0.0.1/nginx_status
+sudo docker ps
+curl -s http://localhost:9113/metrics | head -20
+ss -tlnp | grep 9113
+
+-2.6-
+# Выполняется на ВМ2
+sudo apt update
+sudo apt install -y prometheus
+prometheus --version
+sudo systemctl enable --now prometheus
+sudo systemctl status prometheus --no-pager
+ss -tlnp | grep 9090
+curl -s http://localhost:9090/-/ready
+
+-2.7-
+# Выполняется на ВМ2
+sudo cp /etc/prometheus/prometheus.yml /etc/prometheus/prometheus.yml.bak
+sudo tee /etc/prometheus/prometheus.yml > /dev/null <<'EOF'
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['IP_ВМ1:9100']
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['IP_ВМ1:9113']
+EOF
+
+promtool check config /etc/prometheus/prometheus.yml
+sudo systemctl restart prometheus
+sudo systemctl status prometheus --no-pager
+
+-2.8-
+# Выполняется на ВМ2
+curl -s http://localhost:9090/api/v1/targets | grep -o '"health":"up"' | head
+curl -s 'http://localhost:9090/api/v1/query?query=up' | head
+
+# Проверка через браузер
+# http://IP_ВМ2:9090/targets
+# В выражении Prometheus выполнить запрос: up
+
+-2.9-
+# Выполняется на ВМ2
+sudo apt install -y apt-transport-https software-properties-common wget gpg
+sudo mkdir -p /etc/apt/keyrings
+wget -q -O - https://apt.grafana.com/gpg.key | gpg --dearmor | sudo tee /etc/apt/keyrings/grafana.gpg > /dev/null
+echo "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo apt update
+sudo apt install -y grafana
+sudo systemctl enable --now grafana-server
+sudo systemctl status grafana-server --no-pager
+ss -tlnp | grep 3000
+
+-2.10-
+# Открыть в браузере:
+# http://IP_ВМ2:3000
+# Connections/Data sources -> Add data source -> Prometheus
+# URL: http://localhost:9090
+# Save & test
+
+-2.11-
+# В Grafana:
+# Dashboards -> New -> Import
+# ID 1860  - Node Exporter Full
+# ID 12708 - NGINX Prometheus Exporter
+# В поле Data source выбрать Prometheus
+
+-ДОП ЗАДАНИЕ К 2-
+# Для генерации нагрузки на ВМ1 можно выполнить:
+for i in {1..100}; do curl -s http://localhost > /dev/null; done
+
+# После этого обновить дашборды Grafana и убедиться, что метрики изменяются.
