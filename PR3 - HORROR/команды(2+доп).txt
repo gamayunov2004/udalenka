@@ -116,3 +116,65 @@ ss -tlnp | grep 3000
 for i in {1..100}; do curl -s http://localhost > /dev/null; done
 
 # После этого обновить дашборды Grafana и убедиться, что метрики изменяются.
+
+
+-2.6-
+# Выполняется на ВМ1
+sudo a2enmod status
+sudo tee /etc/apache2/conf-available/pr3_server_status.conf > /dev/null <<'EOF'
+ExtendedStatus On
+
+<Location "/server-status">
+    SetHandler server-status
+    Require local
+</Location>
+EOF
+sudo a2enconf pr3_server_status.conf
+sudo apache2ctl configtest
+sudo systemctl restart apache2
+curl -s http://localhost:8081/server-status?auto | head -20
+
+-2.7-
+# Выполняется на ВМ1
+sudo docker rm -f pr3-apache-exporter 2>/dev/null || true
+sudo docker run -d --name pr3-apache-exporter --restart unless-stopped --network host lusotycoon/apache-exporter --scrape_uri=http://127.0.0.1:8081/server-status?auto
+sudo docker ps
+curl -s http://localhost:9117/metrics | grep -i apache | head -20
+ss -tlnp | grep 9117
+
+ -2.9-
+sudo cp /etc/prometheus/prometheus.yml /etc/prometheus/prometheus.yml.bak
+sudo tee /etc/prometheus/prometheus.yml > /dev/null <<'EOF'
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['10.0.2.15:9100']
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['10.0.2.15:9113']
+
+  - job_name: 'apache'
+    static_configs:
+      - targets: ['10.0.2.15:9117']
+EOF
+
+promtool check config /etc/prometheus/prometheus.yml
+sudo systemctl restart prometheus
+sudo systemctl status prometheus --no-pager
+
+-2.10-
+# Выполняется на ВМ2
+curl -s http://localhost:9090/api/v1/targets | grep -o '"health":"up"' | head
+curl -s 'http://localhost:9090/api/v1/query?query=up' | head
+ 
+# Проверка через браузер
+http://localhost:9090/classic/targets 
+http://localhost:9090/classic/graph -> Выполнить запрос up
