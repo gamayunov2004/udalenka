@@ -75,6 +75,11 @@ EOF
 cat logstash/pipeline/logstash.conf
 
 --3.5--
+sudo apt remove -y docker-compose
+mkdir -p ~/.docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+docker compose version
 # Выполняется на ВМ2
 cd ~/Gamayunov/pr3_elk
 sudo docker compose up -d
