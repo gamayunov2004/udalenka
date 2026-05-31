@@ -1,0 +1,153 @@
+--3.2.--
+# Выполняется на ВМ2
+sudo apt update
+sudo apt install -y docker.io docker-compose-plugin curl
+sudo systemctl enable --now docker
+sudo sysctl -w vm.max_map_count=262144
+mkdir -p ~/Gamayunov/pr3_elk/logstash/pipeline
+cd ~/Gamayunov/pr3_elk
+
+--3.3--
+cat > docker-compose.yml <<'EOF'
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: pr3-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    container_name: pr3-logstash
+    ports:
+      - "5044:5044"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: pr3-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+volumes:
+  esdata:
+EOF
+cat docker-compose.yml
+
+--3.4--
+cat > logstash/pipeline/logstash.conf <<'EOF'
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+  if [time] {
+    date {
+      match => ["time", "ISO8601"]
+      target => "@timestamp"
+    }
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://elasticsearch:9200"]
+    index => "nginx-logs-%{+YYYY.MM.dd}"
+  }
+  stdout { codec => rubydebug }
+}
+EOF
+cat logstash/pipeline/logstash.conf
+
+--3.5--
+# Выполняется на ВМ2
+cd ~/Gamayunov/pr3_elk
+sudo docker compose up -d
+sudo docker compose ps
+curl -s http://localhost:9200 | head
+curl -I http://localhost:5601
+sudo ss -tlnp | grep -E ':9200|:5044|:5601' 
+
+--3.6--
+# Выполняется на ВМ1
+sudo tee /etc/nginx/conf.d/pr3_json_logging.conf > /dev/null <<'EOF'
+log_format pr3_json escape=json '{'
+  '"time":"$time_iso8601",'
+  '"remote_addr":"$remote_addr",'
+  '"request":"$request",'
+  '"status":$status,'
+  '"body_bytes_sent":$body_bytes_sent,'
+  '"http_referer":"$http_referer",'
+  '"http_user_agent":"$http_user_agent",'
+  '"request_time":$request_time'
+'}';
+
+access_log /var/log/nginx/pr3_access_json.log pr3_json;
+EOF
+sudo nginx -t
+sudo systemctl reload nginx
+for i in {1..20}; do curl -s http://localhost > /dev/null; done
+sudo tail -5 /var/log/nginx/pr3_access_json.log
+
+--3.7--
+# Выполняется на ВМ1
+mkdir -p ~/Gamayunov/pr3_filebeat
+cat > ~/Gamayunov/pr3_filebeat/filebeat.yml <<'EOF'
+filebeat.inputs:
+  - type: filestream
+    id: nginx-json-logs
+    enabled: true
+    paths:
+      - /var/log/nginx/pr3_access_json.log
+    parsers:
+      - ndjson:
+          target: ""
+          add_error_key: true
+
+output.logstash:
+  hosts: ["10.0.2.3:5044"]
+
+setup.ilm.enabled: false
+setup.template.enabled: false
+EOF
+
+sudo docker rm -f pr3-filebeat 2>/dev/null || true
+sudo docker run -d \
+  --name pr3-filebeat \
+  --user=root \
+  --restart unless-stopped \
+  -v /var/log/nginx:/var/log/nginx:ro \
+  -v ~/Gamayunov/pr3_filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro \
+  docker.elastic.co/beats/filebeat:8.13.4 \
+  filebeat -e --strict.perms=false
+
+sudo docker ps
+sudo docker logs pr3-filebeat --tail 30
+
+--3.8--
+# Выполняется на ВМ1
+for i in {1..100}; do curl -s http://localhost > /dev/null; done
+
+# Выполняется на ВМ2
+curl -s http://localhost:9200/_cat/indices?v | grep nginx-logs
+curl -s "http://localhost:9200/nginx-logs-*/_search?pretty&size=3" | head -80
+
+--3.9--
+
+--3.10--
+
